@@ -1,0 +1,253 @@
+﻿<html>
+    <head>
+        <title>AKEBONO Blog | Layer: 01</title>
+        <mate chaset="ISO-2022-JP"/>
+        <link rel="icon" href="../favicon.ico">
+    </head>
+
+    <body bgcolor="#FFF783" topmargin="70px">
+        <center>
+            <header>
+                <b><font color="green" style="padding-top: 40px;font-size: 48px;">Layer 01: Gmail SMTP FOWRDING</font></b> <br>
+                <small style="text-align: right;">Create: 24/2/20</small>
+                </header>
+                    <b>!注意: サーバーにはUBUNTU+POSTFIXを使用します。基本的な設定は完成しているものとします。(時間があればまた書きます)</b>
+                    <p style="margin: 2;">私は自宅サーバーを持っているのですがOP25Bに悪戦苦闘しました。</p>
+                    <p style="margin: 2;">今回はこの経験をここに書き残します。</p>
+                    <p>~　~　~</p>
+		　  <p style="margin; 2;">今回はgmailを使った設定を施していきます。
+                    <p style="margin: 2;">最初にリレー設定を完了させます。</p>
+
+                    <blockquote style="margin-left: 250px;">
+                        <i><pre style="font-size: 12px;text-align: left;">
+                        > sudo su - <br>
+                        > vi /etc/postfix/main.cf <br>
+                        -- <br>
+                        ": relayhost = [smtp.gmail.com]:587" <br>
+                        ": smtp_use_tls = yes" <br>
+                        ": smtp_sasl_auth_enable = yes" <br>
+                        "smtp_sasl_password_maps = hash:/etc/postfix/gmail" <br>
+                        "smtp_sasl_security_options = noanonymous" <br>
+                        "smtp_sasl_tls_security_options = noanonymous" <br>
+                        "smtp_sasl_mechanism_filter = plain" <br>
+                        </pre></i>
+                    </blockquote>
+                    <p style="margin: 2;">さらに"smtp_sasl_password_maps"の欄で記入したようにパスワードをGoogleから取得して、設定します。</p>
+                    <blockquote style="margin-left: 100px;">
+                        <i><pre style="font-size: 14px;text-align: left;">
+                            1. Googleにログインし、ホームからセキュリティに移動する。
+                            2. 二段階認証必須のため、2段階認証プロセスの電話番号に移動して認証する。 (固定電話なども可)
+                            3. セキュリティに戻り2段階認証プロセスに移動する。
+                            4. 一番下のアプリパスワードに移動する。
+                            5. 適当に名前を決定して作成する。
+                        </pre></i>
+                    </blockquote>
+                    <p style="margin: 2;">これでアプリパスワードは完成ですので次はPostfix側に反映させつつ、</p>
+                    <p style="margin: 2;">テストを実行します。</p>
+                    <blockquote style="margin-left: 150px;">
+                        <i><pre style="font-size: 14px;text-align: left;">
+                            > vi /etc/postfix/gmail
+                            --
+                            [smtp.gmail.com]:587 アドレス@gmail.com:アプリパスワード
+                            　　(アプリパスワードは4つ全て連結させます) ↑
+                            > postmap /etc/postfix/gmail
+                            (上のコマンドでgmail.dbが生成されます)
+                            > service postfix restart
+                            > telnet localhost
+                            helo ドメイン
+                            mail from:送信元
+                            rcpt to:宛先
+                            data
+                            .
+                            quit
+                        </pre></i>
+                    </blockquote>
+                    <p style="margin: 2;">これで送信ができてればほとんど完了です。</p>
+		    <p style="margin: 2;">しかしまだ設定は残っております。</p>
+                    <p style="margin: 2;">「もう終わりじゃないか」「おまけはまだか」はい。風の便りで聞こえてきました。そうじゃないんです。</p>
+                    <p style="margin: 2;">もしかしたらもう気づいた人があるかもしれません。。</p>
+                    <p style="margin: 2;">メールヘッターが@gmail.comになっているのです。</p>
+                    <p style="margin: 2;">これでは送信元のメールアドレスが見えませんし、そしてこれから設定するdkimではじかれてしまうのです。</p>
+                    <p style="margin: 2;">はっきり言ってケチの域に入ってきましたがハードに掛けたお金は戻ってこないのでやっていきます。</p>
+                    <p style="margin: 2;">以下はその設定方法です。</p>
+                    <b>(こちらも二段階認証は必須です。また面倒ですがアドレスごとにこれを設定する必要があります。)</b>
+                        <i><pre style="font-size: 14px;text-align: left;">
+                            1. gmail.comにログインします。
+                            2. 歯車から設定に入り、すべての設定を表示を押します。
+                            3. アカウントとインポートに移動し他のメールアドレスを追加で名前とメールアドレスを設定します。
+                            4. smtpサーバーにログインするための情報を入力して最後に追加を押します。
+                            5. gmail側から確認のメールが届くので確認を押します。
+                        </pre></i>
+                    </blockquote>
+                    <p style="margin: 2;">次にはLet`s Encryptの設定方法です。</p>
+                    <p style="margin: 2;">Web帳さんという<a href="https://www.webcyou.com/?p=11230">こちら</a>の記事を参考にさせていただきました。</p>
+                    <blockquote style="margin-left: 87px;">
+                        <i><pre style="font-size: 14px;text-align: left;">
+                            (> service apache2 stop )
+                            (↑ もしポート80番を占領しているものがあれば止めます)
+                            > apt install certbot 
+                            > certbot certonly --standalone -d アドレス
+                            (規約同意の確認、メールアドレスの登録があります)
+                            (4. service apache2 start)
+                            > certbot certificates
+                            ...
+                            Certificate Path: /etc/letsencrypt/live/<アドレス>/fullchain.pem
+                            Private Key Path: /etc/letsencrypt/live/<アドレス>/privkey.pem
+                            (↑をコピーします。)
+                            > /etc/postfix/main.cf
+                            --
+                            smtp_tls_security_level = may
+                            smtpd_tls_key_file = /etc/letsencrypt/live/<アドレス>/privkey.pem
+                            smtpd_tls_cert_file = /etc/letsencrypt/live/<アドレス>/fullchain.pem
+                            > /etc/postfix/master.cf
+                            --
+                            (sslでsmtpを使う場合は下のようにsmtpsをコメントアウトする)
+                            smtps     inet  n       -       n       -       -       smtpd
+                            -o smtpd_tls_wrappermode=yes
+                            -o smtpd_sasl_auth_enable=yes
+                            -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
+                            > service postfix restart
+                            > /etc/dovecot/conf.d/10-ssl.conf
+                            --
+                            ssl = required
+                            ssl_cert = &lt;/etc/letsencrypt/live/<アドレス>/fullchain.pem
+                            ssl_key = &lt;/etc/letsencrypt/live/<アドレス>/privkey.pem
+			    > ufw allow 465
+                            > /etc/dovecot/conf.d/10-master.conf
+                            --
+                            service imap-login {
+                            #    inet_listener imap {
+                            #      port = 143
+                            #    }
+                                inet_listener imaps {
+                                  port = 993
+                                  ssl = yes
+                                }
+                              }
+                               
+                              service pop3-login {
+                            #    inet_listener pop3 {
+                            #      port = 110
+                            #    }
+                                inet_listener pop3s {
+                                  port = 995
+                                  ssl = yes
+                                }
+                              }
+                            > service dovecot restart
+                            > ufw allow 993
+			    > ufw allow 995
+			    > ufw reload
+			    > vi /etc/cron.d/letsencrypt
+                            --
+                            > 00 00 1 * * root /usr/bin/certbot renew --pre-hook "service apache2 stop" --post-hook "service apache2 start"
+                        </pre></i>
+                    </blockquote>
+                    <p style="margin: 2;">いやぁ、しかしこれまでできるようにさせていただいた先人の方には感謝しかありません。</p>
+		    <p style="margin: 2;"> ~　　　~　　　~ </p>
+		    <p style="margin: 2;">最後にメールサーバーにログインします。</p>
+                    <blockquote style="margin-left: 47px;">
+                    <i><pre style="font-size: 14px;text-align: left;">
+		         1. outlookやsylpheed等、TLS,SSL接続ができるソフトを使います。
+			 2. アカウントを追加します。
+			 3. 事前に登録したアドレスやサーバーアドレス等入力します。
+			 4. ポート番号を指定します。
+			  >POP-> 995 IMAP4-> 993 SMTP -> 465, 587(別途でサブミッションポートを設定している場合)
+			 5. IDやログインパスワード等を入力します。
+			 6. 登録を完了させます。
+			 7. アカウントの設定から送信サーバーの、"このサーバーは認証が必要"にチェックを入れます。
+		　　</pre></i>
+                    </blockquote>
+		    <hr>
+                    <h4>おまけ: dkim, dmarc設定</h4>
+                    <p style="margin: 2;">おまけです。</p>
+                    <p style="margin: 2;">最近迷惑メールが大変らしいです。そのため各社がこぞってdkim, dmarcという</p>
+                    <p style="margin: 2;">送信元の検証システムを導入しているようです。これにはgoogleや日本の大手プロバイバーも含まれます。</p>
+                    <p style="margin: 2;">なんだかOP25Bに似ています。まあこれが実際に意味を成すのかという議論は置いておいて</p>
+                    <p style="margin: 2;">DKIM, DMARCの設定をしていきます。</p>
+                    
+                        <i><pre style="font-size: 14px;text-align: left;">
+                         1. 重複しない為の適当な名前(セレクター名)を決めます。(この例ではmailとします)
+                         2. opendkimを設定していきます
+                         最初に公開鍵、秘密鍵を作成、確認をします
+                         > apt install opendkim
+                         > opendkim-genkey -s mail
+                         > ls
+                         ..
+                         mail.private  mail.txt
+                         > cat mail.txt
+                         ..
+                         mail._domainkey IN      TXT     ( "v=DK...
+                         3. catで表示した物を手持ちのドメインにDNSレコードとして設定します。(この例ではhoge.jpとします)
+                         レコード名="mail._domainkey.hoge.jp" タイプ="TXT" 値="v=DKIM1; h=sha256; k=rsa;" "p=..." "..."
+                         (エラーがでるときは値を連結させて登録してください。)
+                         4. さらに設定を進めていきます。秘密鍵、postfixとの連携関連のものになります
+                         > mkdir -p /var/db/dkim/
+                         > mv ./mail.private /var/db/dkim/mail.key.pem
+                         > cd /var/db/dkim/
+                         > chown -R opendkim:opendkim /var/db/dkim/
+                         > chown -R opendkim:opendkim /var/db/dkim/*
+                         > chmod 600 mail.key.pem
+                         > chmod 700 .
+                         > opendkim-testkey -d hoge.jp -s mail -k mail.key.pem
+                         #特に何も表示されなければ問題ないです。
+                         > /etc/opendkim.conf
+                         ---
+                         
+                         ...
+                         Domain hoge.jp
+                         Selector mail
+                         KeyFile /var/db/dkim/mail.key.pem
+                         ...
+                         #Socket                 local:/run/opendkim/opendkim.sock 
+			 #↑ コメントアウトする
+			 Socket                  inet:8891@localhost
+			 # #を取って有効にする
+			 ...
+                         InternalHosts 127.0.0.1
+                         #許可するIPアドレスの範囲を指定するものです。
+                         > service opendkim restart
+			 > /etc/postfix/main.cf
+                         smtpd_milters = inet:127.0.0.1:8891
+                         non_smtpd_milters = $smtpd_milters
+                         > service postfix restart
+                         5. spfの設定をします。(IPアドレスは333.333.333.333とします)
+                         レコード名=\"hoge.jp" タイプ="TXT" 値="v=spf1 ip4:333.333.333.333 ~all"
+                         6. dmarcの設定をします。ruaには各社から送られるレポートの宛先を指定しましょう
+			 (ruaに指定したメールアドレスには送信がなされたどうかのレポートが帰ってきます。確認しましょう)
+                         レコード名=\"_dmarc.hoge.jp" タイプ="TXT" 値="v=DMARC1; p=quarantine; rua=mailto:admin@hoge.jp"
+                        </pre></i>
+                    </blockquote>		    
+                    <p style="margin: 2;">ちょうどいい暇つぶしになりました。</p>
+                    <p style="margin: 2;">それにしても、企業等々の固定IPを持っている人達にはかないません。彼らはお金でやってのけるのです。</p>
+                    <p style="margin: 2;">「お金で人生買えるのよ」とかどこかのCDで聞き覚えのあるセリフが脳裏に浮かんできますよね。</p>
+                    <p style="margin: 2;">お金はオッかねえですね。。。</p><small>お金だけに</small>
+		    <br>
+		    <br>
+		    <table>
+		      <tr>
+			<td>参考: <strong><a href="https://www.webcyou.com/?p=11230">Web帳 Ubuntu 20.04 LTS サーバ構築 – Postfix Let’s EncryptでTLS化</a></strong></td>
+		      </tr>
+		      <tr>
+			<td>　　　: <strong><a href="http://www.opendkim.org/">Opendkim ORG</a></strong></td>
+		      </tr>
+		      <tr>
+			<td>　　　: <strong><a href="https://www.postfix.com/">The Postfix Home Page</a></strong></td>
+		      </tr>
+		      <tr>
+			<td>　　　: <strong><a href="https://doc.dovecot.org/">Dovecot manual</a></strong></td>
+		      </tr>
+		      <tr>
+			<td>追記: <small><a href="https://access.redhat.com/articles/1470523">この記事によると、古いsslでもアクセスするようにできるそうです。<br>暇があればこれを訳して乗せるかもしれません。</a></small></td>
+		      </tr>
+		    </table>
+                    <br>
+                    <br>
+            <footer>
+                <a href="../index.htm"><small>[HOME]</small></a> <br>
+                <small>ご意見は<a href="mailto:ahdrnfx3hn@yahoo.co.jp">こちら</a></small> <br>
+                <small>Copyright since 2024 Akebono</small>
+            </footer>
+        </center>
+    </body>
+</html>
